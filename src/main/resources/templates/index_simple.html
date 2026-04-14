@@ -26,11 +26,19 @@
 
         .dashboard-wrapper { display: flex; min-height: 100vh; }
 
-        /* Sidebar */
+        /* Sidebar - Desktop styles */
         .sidebar {
-            width: var(--sidebar-width); background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px);
-            border-right: 1px solid var(--border-color); padding: 2rem 1.5rem; display: flex; flex-direction: column;
-            position: fixed; height: 100vh; z-index: 1050; transition: transform 0.3s ease;
+            width: var(--sidebar-width);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border-color);
+            padding: 2rem 1.5rem;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 1050;
+            transition: transform 0.3s ease;
         }
         .brand-logo {
             font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, #818cf8, #c084fc);
@@ -44,7 +52,13 @@
         }
         .nav-link:hover, .nav-link.active { background: rgba(99, 102, 241, 0.15); color: #fff; }
 
-        .main-content { flex: 1; margin-left: var(--sidebar-width); padding: 0; transition: margin-left 0.3s ease; }
+        /* Main content for desktop */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width); /* Desktop margin */
+            padding: 0;
+            transition: margin-left 0.3s ease;
+        }
 
         /* Landing Page Sections */
         .landing-section { padding: 4rem 2rem; }
@@ -100,13 +114,69 @@
         .history-table th { font-size: 0.75rem; color: #94a3b8; border-bottom-width: 1px; }
         .history-table td { font-size: 0.8rem; vertical-align: middle; }
 
-        @media (max-width: 991.98px) {
-            .sidebar { transform: translateX(-100%); }
-            .sidebar.show { transform: translateX(0); width: 85%; }
-            .main-content { margin-left: 0; }
+        /* Mobile adjustments */
+        @media (max-width: 1199.98px) { /* Bootstrap's xl breakpoint for sidebar collapse */
+            .sidebar {
+                /* Reset desktop fixed position and width for offcanvas */
+                position: unset; /* Let offcanvas handle positioning */
+                width: 100%; /* Offcanvas will set its own width */
+                padding: 0; /* Offcanvas body will have padding */
+                border-right: none;
+                transform: none; /* Offcanvas handles transform */
+            }
+            .main-content {
+                margin-left: 0; /* No margin on mobile */
+            }
             .hero-section { min-height: auto; padding-top: 6rem; }
             .home-title { font-size: 2.2rem; }
             .option-grid { grid-template-columns: 1fr; }
+
+            /* Offcanvas specific overrides */
+            .offcanvas.sidebar {
+                width: 85%; /* Custom width for mobile sidebar */
+                background: rgba(15, 23, 42, 0.95); /* Apply background here for offcanvas */
+                backdrop-filter: blur(20px);
+                border-right: 1px solid var(--border-color);
+            }
+            .offcanvas-header {
+                border-bottom: 1px solid var(--border-color);
+                padding: 1.5rem;
+            }
+            .offcanvas-body {
+                padding: 0 1.5rem 1.5rem; /* Adjust padding for body */
+                display: flex;
+                flex-direction: column;
+            }
+            .brand-logo {
+                margin-bottom: 0; /* Reset margin for offcanvas header */
+            }
+            .btn-close {
+                filter: invert(1) grayscale(100%) brightness(200%); /* Make close button white */
+                opacity: 1;
+            }
+        }
+
+        /* Ensure desktop view is correct */
+        @media (min-width: 1200px) { /* xl breakpoint */
+            .sidebar {
+                transform: translateX(0) !important; /* Always visible on desktop */
+            }
+            .main-content {
+                margin-left: var(--sidebar-width);
+            }
+            .offcanvas.sidebar { /* Hide offcanvas specific styles on desktop */
+                visibility: visible !important;
+                transform: none !important;
+                position: fixed;
+                height: 100vh;
+                width: var(--sidebar-width);
+            }
+            .offcanvas-header, .offcanvas-body {
+                display: none; /* Hide offcanvas header/body on desktop */
+            }
+            .sidebar .brand-logo {
+                margin-bottom: 3rem; /* Restore desktop margin */
+            }
         }
 
         /* Intro Modal Specific Styles */
@@ -146,23 +216,33 @@
 
 <div class="dashboard-wrapper">
     <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <div class="brand-logo"><i class="fas fa-bolt"></i> <span>Tool Reup Pro</span></div>
-        <ul class="nav-menu">
-            <li class="nav-item"><a onclick="showSection('homeSection')" id="navHome" class="nav-link active"><i class="fas fa-home"></i> <span>Trang Chủ</span></a></li>
-            <li class="nav-item"><a onclick="showSection('reupSection')" id="navReup" class="nav-link"><i class="fas fa-rocket"></i> <span>Tạo Video Reup</span></a></li>
-            <li class="nav-item"><a th:href="@{/advanced-reup}" class="nav-link"><i class="fas fa-magic"></i> <span>Bulk Advanced (HOT)</span></a></li>
-            <li class="nav-item" th:if="${hideHistory == null}"><a href="#history-section" class="nav-link" onclick="handleHistoryNav(event)"><i class="fas fa-history"></i> <span>Lịch sử</span></a></li>
-            <li class="nav-item"><a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#introModal"><i class="fas fa-info-circle"></i> <span>Giới thiệu</span></a></li>
-            <li class="nav-item" sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin}" class="nav-link"><i class="fas fa-user-shield"></i> <span>Admin</span></a></li>
-            <li class="nav-item mt-auto">
-                <form th:action="@{/logout}" method="post" id="logoutForm" class="d-none"></form>
-                <a href="javascript:void(0)" onclick="document.getElementById('logoutForm').submit()" class="nav-link text-danger"><i class="fas fa-sign-out-alt"></i> <span>Đăng xuất</span></a>
-            </li>
-        </ul>
+    <aside class="sidebar offcanvas offcanvas-start" tabindex="-1" id="sidebar" aria-labelledby="sidebarLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title brand-logo" id="sidebarLabel"><i class="fas fa-bolt"></i> <span>Tool Reup Pro</span></h5>
+            <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body d-flex flex-column">
+            <ul class="nav-menu">
+                <li class="nav-item"><a onclick="showSection('homeSection')" id="navHome" class="nav-link active"><i class="fas fa-home"></i> <span>Trang Chủ</span></a></li>
+                <li class="nav-item"><a onclick="showSection('reupSection')" id="navReup" class="nav-link"><i class="fas fa-rocket"></i> <span>Tạo Video Reup</span></a></li>
+                <li class="nav-item"><a th:href="@{/advanced-reup}" class="nav-link"><i class="fas fa-magic"></i> <span>Bulk Advanced (HOT)</span></a></li>
+                <li class="nav-item" th:if="${hideHistory == null}"><a href="#history-section" class="nav-link" onclick="handleHistoryNav(event)"><i class="fas fa-history"></i> <span>Lịch sử</span></a></li>
+                <li class="nav-item"><a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#introModal"><i class="fas fa-info-circle"></i> <span>Giới thiệu</span></a></li>
+                <li class="nav-item" sec:authorize="hasRole('ADMIN')"><a th:href="@{/admin}" class="nav-link"><i class="fas fa-user-shield"></i> <span>Admin</span></a></li>
+                <li class="nav-item mt-auto">
+                    <form th:action="@{/logout}" method="post" id="logoutForm" class="d-none"></form>
+                    <a href="javascript:void(0)" onclick="document.getElementById('logoutForm').submit()" class="nav-link text-danger"><i class="fas fa-sign-out-alt"></i> <span>Đăng xuất</span></a>
+                </li>
+            </ul>
+        </div>
     </aside>
 
     <main class="main-content">
+        <!-- Toggle button for mobile sidebar -->
+        <button class="btn btn-dark d-xl-none position-fixed top-0 start-0 m-3 z-1051" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar">
+            <i class="fas fa-bars"></i>
+        </button>
+
         <!-- SECTION 1: TRANG CHỦ -->
         <div id="homeSection">
             <section class="landing-section hero-section animate__animated animate__fadeIn">
@@ -413,6 +493,13 @@
         else document.getElementById('navReup').classList.add('active');
         localStorage.setItem('activeSection', id);
         window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Close offcanvas sidebar after navigation on mobile
+        const offcanvasElement = document.getElementById('sidebar');
+        const offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElement);
+        if (offcanvas) {
+            offcanvas.hide();
+        }
     }
 
     function handleHistoryNav(e) {
