@@ -132,7 +132,7 @@
                 <div class="fw-bold small" th:text="${#authentication.principal.attributes['name']}">Admin</div>
                 <div class="text-secondary" style="font-size: 0.7rem;" th:text="${#authentication.principal.attributes['email']}">admin@gmail.com</div>
             </div>
-            <a th:href="@{/}" class="btn btn-info btn-sm-custom rounded-pill text-white shadow-sm">
+            <a th:href="@{/(view='user')}" class="btn btn-info btn-sm-custom rounded-pill text-white shadow-sm">
                 <i class="fas fa-user-friends me-1"></i> User UI
             </a>
             <form th:action="@{/logout}" method="post" id="logoutForm" class="d-none"></form>

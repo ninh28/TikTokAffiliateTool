@@ -38,7 +38,7 @@ public class AdvancedReupEngine {
      */
     public String processAdvancedReup(VideoReupJob job, Path inputVideoPath,
                                       String textHook, String trendingMusicPath,
-                                      boolean includeVoiceover) throws Exception {
+                                      boolean includeVoiceover, String frameType) throws Exception {
 
         Files.createDirectories(Paths.get(OUTPUT_DIR));
         Files.createDirectories(Paths.get(TEMP_DIR));
@@ -53,10 +53,10 @@ public class AdvancedReupEngine {
         processTrim(inputVideoPath, trimmedVideo);
         updateProgress(job, 15);
 
-        // Step 2: Apply all visual effects
-        LOG.info("🎨 Step 2: Applying visual effects (Zoom 1.1x + Flip + Color Grading + Text Hook + Grain)");
+        // Step 2: Apply all visual effects + Frame
+        LOG.info("🎨 Step 2: Applying visual effects + Frame: " + frameType);
         Path visualProcessedVideo = Paths.get(TEMP_DIR, job.getJobId() + "_visual.mp4");
-        processVisualEffects(trimmedVideo, visualProcessedVideo, textHook, 1.1, 0.9, 1.05, 0.97);
+        processVisualEffects(trimmedVideo, visualProcessedVideo, textHook, frameType, 1.1, 0.9, 1.05, 0.97);
         updateProgress(job, 40);
 
         // Step 3: Speed up video 1.1x
@@ -65,7 +65,7 @@ public class AdvancedReupEngine {
         processSpeed(visualProcessedVideo, speedVideo, 1.1);
         updateProgress(job, 55);
 
-        // Step 4: Audio processing
+        // Step 4: Audio processing (TTS logic should be here)
         LOG.info("🔊 Step 4: Processing audio");
         Path finalAudio = processAudio(speedVideo, trendingMusicPath, includeVoiceover, job.getJobId());
         updateProgress(job, 75);
@@ -103,10 +103,10 @@ public class AdvancedReupEngine {
     /**
      * Step 2: Apply all visual effects (combined)
      */
-    private void processVisualEffects(Path inputVideo, Path outputVideo, String textHook,
+    private void processVisualEffects(Path inputVideo, Path outputVideo, String textHook, String frameType,
                                       double zoom, double temperature, double contrast, double saturation) throws Exception {
         List<String> cmd = visualEffectsService.buildCombinedVisualEffectsCommand(
-            inputVideo, outputVideo, textHook, zoom, temperature, contrast, saturation
+            inputVideo, outputVideo, textHook, frameType, zoom, temperature, contrast, saturation
         );
         executeFFmpegCommand(cmd);
     }
@@ -143,17 +143,13 @@ public class AdvancedReupEngine {
             );
             executeFFmpegCommand(mixCmd);
         } else {
-            // If no trending music provided, just use reduced original audio
             Files.copy(reducedAudio, mixedAudio);
         }
 
-        // Optional: Add voiceover
+        // Logic for Text-to-Speech would go here
         if (includeVoiceover) {
-            LOG.info("🎙️ Adding AI voiceover (optional)");
-            // Placeholder: In real implementation, call TTS API
-            // Path voiceoverFile = generateVoiceover(jobId);
-            // List<String> voiceCmd = audioService.buildAddVoiceoverCommand(mixedAudio, voiceoverFile, finalAudio);
-            // executeFFmpegCommand(voiceCmd);
+            LOG.info("🎙️ Adding AI voiceover (using simple logic for demo)");
+            // In a real implementation, you'd call Viettel/FPT AI here
         }
 
         return mixedAudio;
@@ -170,14 +166,14 @@ public class AdvancedReupEngine {
         cmd.add("-i");
         cmd.add(audioPath.toString());
         cmd.add("-c:v");
-        cmd.add("copy");  // Copy video codec (already processed)
+        cmd.add("copy");
         cmd.add("-c:a");
-        cmd.add("aac");   // Audio codec
+        cmd.add("aac");
         cmd.add("-map");
-        cmd.add("0:v:0");  // Take video from first input
+        cmd.add("0:v:0");
         cmd.add("-map");
-        cmd.add("1:a:0");  // Take audio from second input
-        cmd.add("-shortest");  // Trim to shortest stream
+        cmd.add("1:a:0");
+        cmd.add("-shortest");
         cmd.add("-y");
         cmd.add(outputPath.toString());
 
@@ -231,4 +227,3 @@ public class AdvancedReupEngine {
         }
     }
 }
-

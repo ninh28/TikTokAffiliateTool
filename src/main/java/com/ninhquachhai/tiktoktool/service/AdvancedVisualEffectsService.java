@@ -9,7 +9,7 @@ import java.util.logging.Logger;
 
 /**
  * Advanced Visual Effects Service
- * Handles zoom, trim, flip, color grading, noise overlay, and visual hooks
+ * Handles zoom, trim, flip, color grading, noise overlay, framing and visual hooks
  */
 @Service
 public class AdvancedVisualEffectsService {
@@ -20,10 +20,6 @@ public class AdvancedVisualEffectsService {
 
     /**
      * Trim video - remove first and last N seconds
-     * @param inputVideo Input video
-     * @param outputVideo Output video
-     * @param trimStart Seconds to trim from start
-     * @param trimEnd Seconds to trim from end (will be calculated from duration)
      */
     public List<String> buildTrimCommand(Path inputVideo, Path outputVideo, double trimStart, double trimEnd) {
         List<String> cmd = new ArrayList<>();
@@ -34,9 +30,8 @@ public class AdvancedVisualEffectsService {
         cmd.add(String.valueOf(trimStart));
 
         if (trimEnd > 0) {
-            // Use -to for end time instead of -t
             cmd.add("-to");
-            cmd.add("duration=" + trimEnd); // Will be calculated
+            cmd.add("duration=" + trimEnd);
         }
 
         cmd.add("-y");
@@ -46,143 +41,58 @@ public class AdvancedVisualEffectsService {
     }
 
     /**
-     * Zoom video 1.1x and crop to remove edges
-     * Effectively: video gets bigger, old edges disappear
+     * Apply professional frames to video
+     * @param inputVideo Input path
+     * @param outputVideo Output path
+     * @param frameType "news", "phone", "review", or "none"
      */
-    public List<String> buildZoomAndCropCommand(Path inputVideo, Path outputVideo, double zoomLevel) {
+    public List<String> buildFrameCommand(Path inputVideo, Path outputVideo, String frameType) {
         List<String> cmd = new ArrayList<>();
         cmd.add(FFMPEG_PATH);
         cmd.add("-i");
         cmd.add(inputVideo.toString());
         cmd.add("-y");
 
-        // Zoom with crop: scale up then crop center
-        String filterChain = String.format(
-            "scale=iw*%.2f:ih*%.2f,crop=iw/%.2f:ih/%.2f",
-            zoomLevel, zoomLevel, zoomLevel, zoomLevel
-        );
-
-        cmd.add("-vf");
-        cmd.add(filterChain);
-        cmd.add(outputVideo.toString());
-
-        return cmd;
-    }
-
-    /**
-     * Flip video horizontally (mirror)
-     */
-    public List<String> buildFlipHorizontalCommand(Path inputVideo, Path outputVideo) {
-        List<String> cmd = new ArrayList<>();
-        cmd.add(FFMPEG_PATH);
-        cmd.add("-i");
-        cmd.add(inputVideo.toString());
-        cmd.add("-y");
-        cmd.add("-vf");
-        cmd.add("hflip");
-        cmd.add(outputVideo.toString());
-
-        return cmd;
-    }
-
-    /**
-     * Advanced color grading: Temperature + Contrast + Saturation
-     * @param inputVideo Input video
-     * @param outputVideo Output video
-     * @param temperature Warm (0.8) to Cool (1.2), 1.0 = neutral
-     * @param contrast +5 means 1.05
-     * @param saturation -3% means 0.97
-     */
-    public List<String> buildAdvancedColorGradingCommand(Path inputVideo, Path outputVideo,
-                                                         double temperature, double contrast, double saturation) {
-        List<String> cmd = new ArrayList<>();
-        cmd.add(FFMPEG_PATH);
-        cmd.add("-i");
-        cmd.add(inputVideo.toString());
-        cmd.add("-y");
-
-        // Build filter chain
-        StringBuilder filterChain = new StringBuilder();
-
-        // Temperature: Warm (red) or Cool (blue)
-        if (temperature != 1.0) {
-            if (temperature < 1.0) {
-                // Cool tone: reduce red, increase blue
-                filterChain.append(String.format("colortemperature=%.2f", 3000 + (temperature * 2000)));
-            } else {
-                // Warm tone: increase red
-                filterChain.append(String.format("colortemperature=%.2f", 3000 + (temperature * 2000)));
-            }
+        String filterChain = "";
+        switch (frameType.toLowerCase()) {
+            case "news":
+                // Top and bottom black bars with "TIN TỨC MỚI" text
+                filterChain = "pad=iw:ih+160:0:80:black," +
+                             "drawtext=fontfile='" + FONT_PATH + "':text='TIN TỨC MỚI NHẤT':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=20," +
+                             "drawtext=fontfile='" + FONT_PATH + "':text='XEM NGAY ĐỂ BIẾT CHI TIẾT':fontcolor=yellow:fontsize=30:x=(w-text_w)/2:y=h-50";
+                break;
+            case "review":
+                // White frame with "REVIEW CHÂN THỰC"
+                filterChain = "pad=iw+40:ih+160:20:80:white," +
+                             "drawtext=fontfile='" + FONT_PATH + "':text='REVIEW CHÂN THỰC':fontcolor=black:fontsize=45:fontweight=bold:x=(w-text_w)/2:y=15," +
+                             "drawtext=fontfile='" + FONT_PATH + "':text='GIÁ CỰC SỐC TẠI GIỎ HÀNG ⬇️':fontcolor=red:fontsize=32:x=(w-text_w)/2:y=h-55";
+                break;
+            case "phone":
+                // Simulated phone frame (rounded corners and border)
+                filterChain = "pad=iw+60:ih+120:30:60:black," +
+                             "drawbox=c=gray:t=5:x=25:y=55:w=iw-50:h=ih-110";
+                break;
+            default:
+                filterChain = "copy";
+                break;
         }
 
-        // Contrast and saturation
-        if (filterChain.length() > 0) filterChain.append(",");
-        filterChain.append(String.format("eq=contrast=%.2f:saturation=%.2f", contrast, saturation));
-
-        cmd.add("-vf");
-        cmd.add(filterChain.toString());
+        if (!filterChain.equals("copy")) {
+            cmd.add("-vf");
+            cmd.add(filterChain);
+        }
         cmd.add(outputVideo.toString());
 
         return cmd;
     }
 
     /**
-     * Add text hook at beginning (3 seconds)
-     * Bold text with contrasting background
-     */
-    public List<String> buildTextHookCommand(Path inputVideo, Path outputVideo,
-                                            String hookText, double duration) {
-        List<String> cmd = new ArrayList<>();
-        cmd.add(FFMPEG_PATH);
-        cmd.add("-i");
-        cmd.add(inputVideo.toString());
-        cmd.add("-y");
-
-        String escapedText = escapeText(hookText);
-
-        // Draw bold text with box background
-        String filterChain = String.format(
-            "drawtext=fontfile='%s':text='%s':fontsize=48:fontweight=bold:" +
-            "fontcolor=FFFFFF:x=(w-text_w)/2:y=(h-text_h)/2:" +
-            "boxcolor=000000:boxborderw=5:enable='lt(t\\,%.1f)'",
-            FONT_PATH, escapedText, duration
-        );
-
-        cmd.add("-vf");
-        cmd.add(filterChain);
-        cmd.add(outputVideo.toString());
-
-        return cmd;
-    }
-
-    /**
-     * Add grain/noise overlay for algorithm bypass
-     * Grain at 3% opacity
-     */
-    public List<String> buildGrainOverlayCommand(Path inputVideo, Path outputVideo) {
-        List<String> cmd = new ArrayList<>();
-        cmd.add(FFMPEG_PATH);
-        cmd.add("-i");
-        cmd.add(inputVideo.toString());
-        cmd.add("-y");
-
-        // Add noise grain effect
-        // Using rgbnoise for subtle grain at very low opacity
-        String filterChain = "rgbnoise=c0=.1:c1=.05:c2=.05";
-
-        cmd.add("-vf");
-        cmd.add(filterChain);
-        cmd.add(outputVideo.toString());
-
-        return cmd;
-    }
-
-    /**
-     * Combine all visual effects in one filter chain
+     * Combined visual effects with frame support
      */
     public List<String> buildCombinedVisualEffectsCommand(Path inputVideo, Path outputVideo,
-                                                          String textHook, double zoomLevel,
-                                                          double temperature, double contrast, double saturation) {
+                                                          String textHook, String frameType,
+                                                          double zoomLevel, double temperature, 
+                                                          double contrast, double saturation) {
         List<String> cmd = new ArrayList<>();
         cmd.add(FFMPEG_PATH);
         cmd.add("-i");
@@ -206,16 +116,34 @@ public class AdvancedVisualEffectsService {
         // 3. Flip horizontal
         filterChain.append(",hflip");
 
-        // 4. Text hook (first 3 seconds)
-        String escapedText = escapeText(textHook);
-        filterChain.append(String.format(
-            ",drawtext=fontfile='%s':text='%s':fontsize=48:fontweight=bold:" +
-            "fontcolor=FFFFFF:x=(w-text_w)/2:y=(h-text_h)/2:" +
-            "boxcolor=000000:boxborderw=5:enable='lt(t\\,3)'",
-            FONT_PATH, escapedText
-        ));
+        // 4. Framing
+        if (frameType != null && !frameType.equals("none")) {
+            switch (frameType.toLowerCase()) {
+                case "news":
+                    filterChain.append(",pad=iw:ih+160:0:80:black" +
+                        ",drawtext=fontfile='" + FONT_PATH + "':text='TIN TỨC MỚI NHẤT':fontcolor=white:fontsize=40:x=(w-text_w)/2:y=20" +
+                        ",drawtext=fontfile='" + FONT_PATH + "':text='XEM NGAY ĐỂ BIẾT CHI TIẾT':fontcolor=yellow:fontsize=30:x=(w-text_w)/2:y=h-50");
+                    break;
+                case "review":
+                    filterChain.append(",pad=iw+40:ih+160:20:80:white" +
+                        ",drawtext=fontfile='" + FONT_PATH + "':text='REVIEW CHÂN THỰC':fontcolor=black:fontsize=45:x=(w-text_w)/2:y=15" +
+                        ",drawtext=fontfile='" + FONT_PATH + "':text='SĂN DEAL NGAY TRONG GIỎ HÀNG ⬇️':fontcolor=red:fontsize=32:x=(w-text_w)/2:y=h-55");
+                    break;
+            }
+        }
 
-        // 5. Grain overlay
+        // 5. Text hook (first 3 seconds)
+        if (textHook != null && !textHook.isEmpty()) {
+            String escapedText = escapeText(textHook);
+            filterChain.append(String.format(
+                ",drawtext=fontfile='%s':text='%s':fontsize=48:fontweight=bold:" +
+                "fontcolor=FFFFFF:x=(w-text_w)/2:y=(h-text_h)/2:" +
+                "boxcolor=000000:boxborderw=5:enable='lt(t\\,3)'",
+                FONT_PATH, escapedText
+            ));
+        }
+
+        // 6. Grain overlay
         filterChain.append(",rgbnoise=c0=.1:c1=.05:c2=.05");
 
         cmd.add("-vf");
@@ -236,30 +164,17 @@ public class AdvancedVisualEffectsService {
                    .replace("\n", "\\n");
     }
 
-    /**
-     * Speed up video (1.1x = 10% faster)
-     * Applied with corresponding audio tempo change
-     */
     public List<String> buildSpeedUpCommand(Path inputVideo, Path outputVideo, double speedFactor) {
         List<String> cmd = new ArrayList<>();
         cmd.add(FFMPEG_PATH);
         cmd.add("-i");
         cmd.add(inputVideo.toString());
         cmd.add("-y");
-
-        // Video filter for speed
-        String videoFilter = String.format("setpts=PTS/%.2f", speedFactor);
-
-        // Audio filter for speed (preserve pitch)
-        String audioFilter = String.format("atempo=%.2f", speedFactor);
-
         cmd.add("-vf");
-        cmd.add(videoFilter);
+        cmd.add(String.format("setpts=PTS/%.2f", speedFactor));
         cmd.add("-af");
-        cmd.add(audioFilter);
+        cmd.add(String.format("atempo=%.2f", speedFactor));
         cmd.add(outputVideo.toString());
-
         return cmd;
     }
 }
-

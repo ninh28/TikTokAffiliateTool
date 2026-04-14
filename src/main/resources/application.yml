@@ -9,8 +9,10 @@ spring:
             scope:
               - email
               - profile
+            # Tự động điều hướng dựa trên domain truy cập
+            redirect-uri: "{baseUrl}/login/oauth2/code/google"
 
-  # Cấu hình H2 Database để lưu lịch sử
+  # Cấu hình H2 Database
   datasource:
     url: jdbc:h2:file:./data/tiktokdb;DB_CLOSE_ON_EXIT=FALSE;AUTO_RECONNECT=TRUE
     driverClassName: org.h2.Driver
@@ -35,3 +37,7 @@ app:
 groq:
   api:
     key: ${GROQ_API_KEY:YOUR_GROQ_API_KEY_HERE}
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: native # Quan trọng khi chạy trên Render/Proxy
