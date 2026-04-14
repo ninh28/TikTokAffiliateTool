@@ -51,8 +51,10 @@ public class AppController {
                         Model model) {
         boolean isViewingAsUser = "user".equals(view);
         boolean isAdmin = false;
+        String userEmail = null;
 
-        if (authentication != null) {
+        if (authentication != null && authentication.getPrincipal() instanceof OAuth2User oauthUser) {
+            userEmail = oauthUser.getAttribute("email");
             isAdmin = authentication.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
             
@@ -61,12 +63,16 @@ public class AppController {
             }
         }
         
-        // Nếu là Admin đang xem giao diện người dùng, ẩn lịch sử
+        // Nếu là Admin đang xem giao diện người dùng, ẩn lịch sử của họ (thường Admin không reup cho chính mình)
+        // Hoặc nếu muốn Admin xem được lịch sử của chính họ thì thay đổi logic ở đây.
         if (isAdmin && isViewingAsUser) {
             model.addAttribute("history", new ArrayList<VideoHistory>());
             model.addAttribute("hideHistory", true);
+        } else if (userEmail != null) {
+            // Lấy lịch sử riêng của người dùng đang đăng nhập
+            model.addAttribute("history", videoGenerationService.getUserHistory(userEmail));
         } else {
-            model.addAttribute("history", videoGenerationService.getAllSystemHistory());
+            model.addAttribute("history", new ArrayList<VideoHistory>());
         }
         
         ProductRequest defaultRequest = new ProductRequest("", "", 1, List.of());
@@ -84,7 +90,8 @@ public class AppController {
     }
 
     @PostMapping("/generate")
-    public String generate(@RequestParam(value = "video",  required = false) MultipartFile video,
+    public String generate(Authentication authentication,
+                           @RequestParam(value = "video",  required = false) MultipartFile video,
                            @RequestParam(value = "tiktokUrl", required = false) String tiktokUrl,
                            @RequestParam(value = "isMirror",      required = false, defaultValue = "false") boolean isMirror,
                            @RequestParam(value = "rotate1Degree",     required = false, defaultValue = "false") boolean rotate1Degree,
@@ -103,6 +110,11 @@ public class AppController {
                            @ModelAttribute ProductRequest productRequest,
                            Model model) {
         Path savedFile = null;
+        String userEmail = null;
+        if (authentication != null && authentication.getPrincipal() instanceof OAuth2User oauthUser) {
+            userEmail = oauthUser.getAttribute("email");
+        }
+
         try {
             Files.createDirectories(TEMP_UPLOAD_DIR);
             
@@ -125,11 +137,16 @@ public class AppController {
             );
 
             model.addAttribute("response", videoGenerationService.generateScripts(productRequest, savedFile, reupOpts));
-            model.addAttribute("history", videoGenerationService.getAllSystemHistory());
+            
+            if (userEmail != null) {
+                model.addAttribute("history", videoGenerationService.getUserHistory(userEmail));
+            }
             
         } catch (Exception e) {
             model.addAttribute("error", "Lỗi: " + e.getMessage());
-            model.addAttribute("history", videoGenerationService.getAllSystemHistory());
+            if (userEmail != null) {
+                model.addAttribute("history", videoGenerationService.getUserHistory(userEmail));
+            }
         } finally {
             if (savedFile != null) {
                 try { Files.deleteIfExists(savedFile); } catch (Exception ignored) {}
@@ -149,9 +166,16 @@ public class AppController {
     }
 
     @ExceptionHandler(Exception.class)
-    public String handleError(Exception e, Model model) {
+    public String handleError(Authentication authentication, Exception e, Model model) {
+        String userEmail = null;
+        if (authentication != null && authentication.getPrincipal() instanceof OAuth2User oauthUser) {
+            userEmail = oauthUser.getAttribute("email");
+        }
+
         model.addAttribute("error", "Lỗi hệ thống: " + e.getMessage());
-        model.addAttribute("history", videoGenerationService.getAllSystemHistory());
+        if (userEmail != null) {
+            model.addAttribute("history", videoGenerationService.getUserHistory(userEmail));
+        }
         model.addAttribute("productRequest", new ProductRequest("", "", 1, List.of()));
         return "index_simple";
     }

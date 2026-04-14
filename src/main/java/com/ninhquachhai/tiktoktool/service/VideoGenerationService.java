@@ -179,6 +179,10 @@ public class VideoGenerationService {
         return videoHistoryRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
     }
 
+    public List<VideoHistory> getUserHistory(String userEmail) {
+        return videoHistoryRepository.findByUserEmailOrderByCreatedAtDesc(userEmail);
+    }
+
     public long getTotalUsers() { return appUserRepository.count(); }
     public long getTotalReups() {
         return appUserRepository.findAll().stream().mapToLong(AppUser::getReupCount).sum();
