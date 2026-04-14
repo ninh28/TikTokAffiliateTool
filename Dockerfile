@@ -1,5 +1,5 @@
 # 🚀 TikTok Affiliate Tool - Production Dockerfile
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jdk
 
 # Install FFmpeg
 RUN apt-get update && apt-get install -y \
