@@ -44,9 +44,10 @@ public class VideoRenderService {
         return "ffprobe";
     }
 
-    // Quan trọng: Trên Render/Linux, dùng /tmp hoặc thư mục static bên ngoài JAR
-    private static final String OUTPUT_DIR  = "src/main/resources/static/videos/";
-    private static final String MUSIC_DIR   = "src/main/resources/static/music/";
+    // Quan trọng: Trên Render/Linux, dùng /app/static/videos và /app/static/music
+    // Đây là các thư mục được tạo và cấu hình trong Dockerfile và application.yml
+    private static final String OUTPUT_DIR  = "/app/static/videos/";
+    private static final String MUSIC_DIR   = "/app/static/music/";
     
     // Đường dẫn font cũng cần thay đổi cho Linux
     private String getFontPath() {
@@ -92,7 +93,7 @@ public class VideoRenderService {
         String fileName = "reup_" + UUID.randomUUID() + ".mp4";
         
         // Đảm bảo thư mục đầu ra tồn tại
-        Path outPath = Paths.get(OUTPUT_DIR).toAbsolutePath();
+        Path outPath = Paths.get(OUTPUT_DIR); // Không cần toAbsolutePath() vì đã là đường dẫn tuyệt đối
         Files.createDirectories(outPath);
         Path out = outPath.resolve(fileName);
 
@@ -206,6 +207,7 @@ public class VideoRenderService {
         if (process.waitFor() != 0) {
             throw new RuntimeException("FFmpeg execution failed. Check Render logs for details.");
         }
+        // Trả về đường dẫn tương đối để Spring Boot có thể phục vụ từ /static/videos
         return "/videos/" + Paths.get(cmd.get(cmd.size() - 1)).getFileName().toString();
     }
 
@@ -222,14 +224,23 @@ public class VideoRenderService {
 
     private String pickRandomMusic() {
         try {
-            Path musicPath = Paths.get(MUSIC_DIR).toAbsolutePath();
-            if (!Files.exists(musicPath)) return null;
+            Path musicPath = Paths.get(MUSIC_DIR); // Đã là đường dẫn tuyệt đối /app/static/music/
+            if (!Files.exists(musicPath)) {
+                LOG.warning("Music directory does not exist: " + musicPath.toString());
+                return null;
+            }
             List<Path> files = Files.list(musicPath)
                 .filter(p -> p.toString().toLowerCase().matches(".*\\.(mp3|wav|m4a)$"))
                 .toList();
-            if (files.isEmpty()) return null;
+            if (files.isEmpty()) {
+                LOG.warning("No music files found in: " + musicPath.toString());
+                return null;
+            }
             return files.get(RNG.nextInt(files.size())).toAbsolutePath().toString();
-        } catch (Exception e) { return null; }
+        } catch (Exception e) { 
+            LOG.severe("Error picking random music: " + e.getMessage());
+            return null; 
+        }
     }
 
     private String escapeDrawtext(String text) {

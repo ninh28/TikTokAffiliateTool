@@ -34,6 +34,11 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
 
+  # Cấu hình tài nguyên tĩnh để phục vụ từ bên ngoài JAR trên Render
+  web:
+    resources:
+      static-locations: classpath:/static/,file:/app/static/
+
 # Cấu hình Email của Admin
 app:
   admin-email: ninhquachhai0@gmail.com

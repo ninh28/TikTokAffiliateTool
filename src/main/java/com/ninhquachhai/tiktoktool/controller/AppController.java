@@ -23,7 +23,14 @@ import java.util.List;
 @Controller
 public class AppController {
 
-    private static final Path TEMP_UPLOAD_DIR = Paths.get("temp_uploads");
+    // Tự động nhận diện thư mục upload dựa trên OS
+    private static Path getTempUploadDir() {
+        String os = System.getProperty("os.name").toLowerCase();
+        if (os.contains("win")) {
+            return Paths.get("temp_uploads");
+        }
+        return Paths.get("/app/temp_uploads");
+    }
 
     private final VideoGenerationService videoGenerationService;
     private final PromptGeneratorService  promptGeneratorService;
@@ -63,13 +70,10 @@ public class AppController {
             }
         }
         
-        // Nếu là Admin đang xem giao diện người dùng, ẩn lịch sử của họ (thường Admin không reup cho chính mình)
-        // Hoặc nếu muốn Admin xem được lịch sử của chính họ thì thay đổi logic ở đây.
         if (isAdmin && isViewingAsUser) {
             model.addAttribute("history", new ArrayList<VideoHistory>());
             model.addAttribute("hideHistory", true);
         } else if (userEmail != null) {
-            // Lấy lịch sử riêng của người dùng đang đăng nhập
             model.addAttribute("history", videoGenerationService.getUserHistory(userEmail));
         } else {
             model.addAttribute("history", new ArrayList<VideoHistory>());
@@ -116,14 +120,15 @@ public class AppController {
         }
 
         try {
-            Files.createDirectories(TEMP_UPLOAD_DIR);
+            Path tempUploadDir = getTempUploadDir();
+            Files.createDirectories(tempUploadDir);
             
             if (tiktokUrl != null && !tiktokUrl.isBlank()) {
                 savedFile = tiktokDownloadService.downloadNoWatermark(tiktokUrl);
             } 
             else if (video != null && !video.isEmpty()) {
                 String originalName = video.getOriginalFilename() != null ? video.getOriginalFilename() : "upload.mp4";
-                savedFile = TEMP_UPLOAD_DIR.resolve(System.currentTimeMillis() + "_" + originalName);
+                savedFile = tempUploadDir.resolve(System.currentTimeMillis() + "_" + originalName);
                 video.transferTo(savedFile);
             } 
             else {
